@@ -1,6 +1,6 @@
 #include <cox.h>
 
-SX1272_6Chip &SX1276 = attachSX1276MB1LASModule();
+SX1272_6Chip *SX1276;
 Timer sendTimer;
 RadioPacket *frame = NULL;
 uint32_t sent = 0;
@@ -13,17 +13,13 @@ int8_t bw;
 int8_t txPower;
 bool iq;
 uint8_t syncword;
-uint8_t len = 3;
-uint32_t tTxStarted, tTxDone;
+uint32_t freq;
+bool packetMode;
 
 static void eventOnTxDone(void *ctx, bool success) {
-  digitalWrite(PC9, LOW);
-  tTxDone = micros();
-  printf( "[%lu us (d: %lu us)] Tx %s!\n",
-          tTxDone, tTxDone - tTxStarted, (success) ? "SUCCESS" : "FAIL");
+  printf("[%lu us] Tx %s!\n", micros(), (success) ? "SUCCESS" : "FAIL");
   delete frame;
   frame = NULL;
-  sendTimer.startOneShot(1000);
 }
 
 static void sendTask(void *args) {
@@ -32,7 +28,7 @@ static void sendTask(void *args) {
     return;
   }
 
-  frame = new RadioPacket(255);
+  frame = new RadioPacket(125);
   if (!frame) {
     printf("Not enough memory\n");
     return;
@@ -44,57 +40,96 @@ static void sendTask(void *args) {
   frame->buf[0] = (sent >> 8);
   frame->buf[1] = (sent & 0xff);
 
-  SX1276.transmit(frame);
-  digitalWrite(PC9, HIGH);
-  tTxStarted = micros();
+  SX1276->transmit(frame);
 
-  printf("[%lu us] %lu Tx started... (%u byte)\n", tTxStarted, sent, frame->len);
+  printf("[%lu us] %lu Tx started...\n", micros(), sent);
   sent++;
 }
 
-static void eventKeyboardInput(SerialPort &) {
-  while (Serial.available() > 0) {
-    char c = Serial.read();
-    if (c == '-') {
-      len--;
-    } else if (c == '+') {
-      len++;
-    }
-
-    printf("* Length: %u\n", len);
-  }
+static void eventKeyStroke(SerialPort &) {
+  reboot();
 }
 
 static void appStart() {
-  Serial.onReceive(eventKeyboardInput);
-  Serial.stopInput();
+  Serial.stopInput(); // to receive key stroke not string
+  Serial.onReceive(eventKeyStroke);
 
   /* All parameters are specified. */
-  SX1276.begin();
+  SX1276->begin();
 
   if (modem == 0) {
-    SX1276.setModemLoRa();
-    SX1276.setDataRate(sf);
-    SX1276.setCodingRate(cr);
-    SX1276.setBandwidth(bw);
-    SX1276.setIQMode(iq);
-    SX1276.setSyncword(syncword);
+    SX1276->setModemLoRa();
+    SX1276->setDataRate(sf);
+    SX1276->setCodingRate(cr);
+    SX1276->setBandwidth(bw);
+    SX1276->setIQMode(iq);
+    SX1276->setSyncword(syncword);
   } else {
-    SX1276.setModemFsk();
-    SX1276.setDataRate(50000);
-    SX1276.setBandwidth(50000);
-    SX1276.setAfcBandwidth(83333);
-    SX1276.setFdev(25000);
+    SX1276->setModemFsk();
+    SX1276->setDataRate(50000);
+    SX1276->setBandwidth(50000);
+    SX1276->setAfcBandwidth(83333);
+    SX1276->setFdev(25000);
   }
 
-  SX1276.setChannel(922100000);
-  SX1276.setTxPower(txPower);
-  SX1276.onTxDone(eventOnTxDone, NULL);
-  SX1276.wakeup();
-  SX1276.cca();
+  SX1276->setChannel(freq);
+  SX1276->setTxPower(txPower);
 
-  postTask(sendTask, NULL);
-  sendTimer.onFired(sendTask, NULL);
+  if (packetMode) {
+    SX1276->onTxDone(eventOnTxDone, NULL);
+    SX1276->wakeup();
+
+    sendTimer.onFired(sendTask, NULL);
+    sendTimer.startPeriodic(5000);
+  } else {
+    SX1276->transmitCW(true);
+  }
+}
+
+static void inputPacketMode(SerialPort &);
+static void askPacketMode() {
+  printf("Select modme (0: packet, 1: CW) [0]:");
+  Serial.onReceive(inputPacketMode);
+  Serial.inputKeyboard(buf, sizeof(buf));
+}
+
+static void inputPacketMode(SerialPort &) {
+  if (strlen(buf) == 0 || strcmp(buf, "0") == 0) {
+    printf("* Packet mode selected.\n");
+    packetMode = true;
+  } else if (strcmp(buf, "1") == 0) {
+    printf("* Continuous wave mode selected.\n");
+    packetMode = false;
+  } else {
+    printf("* Unknown mode\n");
+    askPacketMode();
+    return;
+  }
+
+  appStart();
+}
+
+static void inputFrequency(SerialPort &);
+static void askFrequency() {
+  printf("Enter frequency in unit of Hz [917100000]:");
+  Serial.onReceive(inputFrequency);
+  Serial.inputKeyboard(buf, sizeof(buf));
+}
+
+static void inputFrequency(SerialPort &) {
+  if (strlen(buf) == 0) {
+    freq = 917100000;
+  } else {
+    freq = (uint32_t) strtoul(buf, NULL, 0);
+    if (freq == 0) {
+      printf("* Invalid frequency.\n");
+      askFrequency();
+      return;
+    }
+  }
+
+  printf("* Frequency: %lu\n", freq);
+  askPacketMode();
 }
 
 static void inputSyncword(SerialPort &);
@@ -119,7 +154,7 @@ static void inputSyncword(SerialPort &) {
   }
 
   printf("* Syncword: 0x%02X\n", syncword);
-  appStart();
+  askFrequency();
 }
 
 static void inputIQ(SerialPort &);
@@ -146,26 +181,28 @@ static void inputIQ(SerialPort &) {
 
 static void inputTxPower(SerialPort &);
 static void askTxPower() {
-  printf("Set Tx power (1:-1, 2:10, 3:14 dBm) [1]:");
+  printf("Set Tx power (-1 ~ 20) [-1]:");
   Serial.onReceive(inputTxPower);
   Serial.inputKeyboard(buf, sizeof(buf));
 }
 
 static void inputTxPower(SerialPort &) {
-  if (strlen(buf) == 0 || strcmp(buf, "1") == 0) {
-    printf("* 1:-1 dBm selected.\n");
+  if (strlen(buf) == 0) {
     txPower = -1;
-  } else if (strcmp(buf, "2") == 0) {
-    printf("* 2:10 dBm selected.\n");
-    txPower = 10;
-  } else if (strcmp(buf, "3") == 0) {
-    printf("* 3:14 dBm selected.\n");
-    txPower = 14;
-  } else {
+  }
+
+  txPower = (uint8_t) strtol(buf, NULL, 0);
+  printf("* %d dBm selected.\n", txPower);
+
+  if (txPower < -1 || txPower > 20) {
     printf("* Unknown Tx power.\n");
     askTxPower();
     return;
   }
+
+  /* to use Tx power for conducted antenna. */
+  ///txPower += 30;
+
   askIQ();
 }
 
@@ -281,10 +318,9 @@ static void inputModem(SerialPort &) {
 
 void setup(void) {
   Serial.begin(115200);
-  printf("*** [ST Nucleo-L152RE] SX1276 Low-Level Tx Control Example ***\n");
+  printf("*** [PL-ET2] SX1276 Low-Level Tx Control Example ***\n");
 
-  pinMode(PC9, OUTPUT);
-  digitalWrite(PC9, LOW);
+  SX1276 = System.attachSX1276MB1LASModule();
 
 #if 1
   Serial.listen();
@@ -292,11 +328,11 @@ void setup(void) {
 #else
   modem = 0;
   txPower = 14;
-  cr = 1;
+  cr = 4;
   sf = 12;
   bw = 0;
   iq = true;
-  syncword = 0x34;
+  syncword = 0x12;
   appStart();
 #endif
 }
