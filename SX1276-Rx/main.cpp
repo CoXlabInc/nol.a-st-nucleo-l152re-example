@@ -17,7 +17,7 @@ static void printRxDone(void *args) {
 
   printf( "[%lu us (d:%lu)] Rx is done!: RSSI:%d dB, CRC:%s, Length:%u, (",
           tRxDone, (tRxDone - tRxStarted),
-          rxFrame->rssi,
+          rxFrame->power,
           rxFrame->crc_ok ? "OK" : "FAIL",
           rxFrame->len);
   uint16_t i;

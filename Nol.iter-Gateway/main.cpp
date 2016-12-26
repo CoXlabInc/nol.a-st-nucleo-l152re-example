@@ -1,6 +1,5 @@
 #include <cox.h>
 
-SerialPort *Serial2;
 IPv6Interface *ppp;
 Timer ledTimer;
 bool booted = false;
@@ -46,13 +45,13 @@ static void eventLppFrameReceived(IEEE802_15_4Mac &radio,
   const uint8_t *payload = (const uint8_t *) frame->getPayloadPointer();
   printf("* LPP RX: %s,RSSI(%d),%02x %02x~ (length:%u)\n",
           id,
-          frame->rssi,
+          frame->power,
           payload[0],
           payload[1],
           frame->getPayloadLength());
 
   if (booted) {
-    char *data = (char *) dynamicMalloc(frame->len - frame->mhr_len + 1);
+    char *data = (char *) dynamicMalloc(frame->getPayloadLength() + 1);
     if (data) {
       memcpy(data, payload, frame->getPayloadLength());
       data[frame->getPayloadLength()] = '\0';
@@ -72,11 +71,10 @@ void setup(void) {
   ip6_init(1, 0);
 
   /* Initialize the PPP interface. */
-  Serial2 = System.enableSerialUSART3();
-  Serial2->begin(115200);
-  Serial2->listen();
+  Serial2.begin(115200);
+  Serial2.listen();
 
-  ppp = enableIPv6PPPoS(*Serial2);
+  ppp = enableIPv6PPPoS(Serial2);
   if (ppp) {
     ppp->begin();
     ppp->setStateNotifier(ip6_state_changed);

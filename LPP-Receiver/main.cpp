@@ -15,33 +15,35 @@ uint8_t devId = 0;
 uint16_t node_id = 2;
 uint8_t node_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
 
-LPPMac &Lpp = getLPPInstance();
-SX1272_6Chip &SX1276 = attachSX1276MB1LASModule();
+LPPMac *Lpp;
+SX1272_6Chip *SX1276;
 
 void setup(void) {
   Serial.begin(115200);
 
   printf("\n*** [ST Nucleo-L152RE] LPP Receiver ***\n");
 
-  SX1276.begin();
-  SX1276.setDataRate(7);
-  SX1276.setCodingRate(1);
-  SX1276.setTxPower(20);
-  SX1276.setChannel(917300000);
+  SX1276 = System.attachSX1276MB1LASModule();
+  SX1276->begin();
+  SX1276->setDataRate(7);
+  SX1276->setCodingRate(1);
+  SX1276->setTxPower(20);
+  SX1276->setChannel(917300000);
 
   node_ext_id[6] = highByte(node_id);
   node_ext_id[7] = lowByte(node_id);
 
-  Lpp.begin(SX1276, 0x1234, 0xFFFF, node_ext_id);
-  Lpp.setProbePeriod(3000);
-  Lpp.setListenTimeout(3300);
-  Lpp.setTxTimeout(632);
-  Lpp.setRxTimeout(465);
-  Lpp.setRxWaitTimeout(30);
-  //Lpp.setRadioAlwaysOn(true);
+  Lpp = LPPMac::Create();
+  Lpp->begin(*SX1276, 0x1234, 0xFFFF, node_ext_id);
+  Lpp->setProbePeriod(3000);
+  Lpp->setListenTimeout(3300);
+  Lpp->setTxTimeout(632);
+  Lpp->setRxTimeout(465);
+  Lpp->setRxWaitTimeout(30);
+  //Lpp->setRadioAlwaysOn(true);
 
-  Lpp.onReceive(received);
-  Lpp.onReceiveProbe(receivedProbe);
+  Lpp->onReceive(received);
+  Lpp->onReceiveProbe(receivedProbe);
 }
 
 static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame) {
@@ -62,9 +64,9 @@ static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame) {
            frame->srcAddr.id.s64[6],
            frame->srcAddr.id.s64[7]);
   }
-  printf("RSSI(%d),\tLQI(%d)\t%02x %02x~ (length:%u)",
-         frame->rssi,
-         frame->lqi,
+  printf("RSSI(%d),\tSNR(%d)\t%02x %02x~ (length:%u)",
+         frame->power,
+         frame->meta.LoRa.snr,
          payload[0],
          payload[1],
          frame->getPayloadLength());

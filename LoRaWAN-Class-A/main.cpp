@@ -1,8 +1,8 @@
 #include <cox.h>
 
-SX1272_6Chip &SX1276 = attachSX1276MB1LASModule();
-LoRaMac &LoRaWAN = enableLoRaMac();
+LoRaMac *LoRaWAN;
 Timer timerSend;
+SX1272_6Chip *SX1276;
 
 #define OVER_THE_AIR_ACTIVATION 0
 
@@ -56,37 +56,32 @@ static void taskPeriodicSend(void *) {
   f->buf[14] = (altitudeGps >> 8) & 0xFF;
   f->buf[15] = (altitudeGps >> 0) & 0xFF;
 
-  error_t err = LoRaWAN.send(f);
+  error_t err = LoRaWAN->send(f);
   printf("* Sending periodic report (%p): %d\n", f, err);
   if (err != ERROR_SUCCESS) {
     delete f;
   }
 }
 
-static void MlmeConfirm(LoRaMac::MlmeConfirm_t *MlmeConfirm) {
-  if (MlmeConfirm->MlmeRequest == LoRaMac::MLME_JOIN) {
+static void eventLoRaWANJoin( LoRaMac &,
+                              bool joined,
+                              const uint8_t *joinedDevEui,
+                              const uint8_t *joinedAppEui,
+                              const uint8_t *joinedAppKey,
+                              const uint8_t *joinedNwkSKey,
+                              const uint8_t *joinedAppSKey,
+                              uint32_t joinedDevAddr) {
 #if (OVER_THE_AIR_ACTIVATION == 1)
-    if (MlmeConfirm->Status == LoRaMac::EVENT_INFO_STATUS_OK) {
-      // Status is OK, node has joined the network
-      printf("%s()-joined\n", __func__);
-      timerSend.onFired(taskPeriodicSend, NULL);
-      timerSend.startPeriodic(10000);
-    } else {
-      printf("%s()-join failed. Retry to join\n", __func__);
-      LoRaMac::MlmeReq_t mlmeReq;
-      mlmeReq.Type = LoRaMac::MLME_JOIN;
-      mlmeReq.Req.Join.DevEui = devEui;
-      mlmeReq.Req.Join.AppEui = appEui;
-      mlmeReq.Req.Join.AppKey = appKey;
-      LoRaWAN.mlmeRequest(&mlmeReq);
-    }
-#endif
-  } else if (MlmeConfirm->MlmeRequest == LoRaMac::MLME_LINK_CHECK)  {
-    printf("%s()-link check\n", __func__);
-    // Check DemodMargin
-    // Check NbGateways
+  if (joined) {
+    // Status is OK, node has joined the network
+    printf("%s()-joined\n", __func__);
+    timerSend.onFired(taskPeriodicSend, NULL);
+    timerSend.startPeriodic(10000);
   } else {
+    printf("%s()-join failed. Retry to join\n", __func__);
+    LoRaWAN->beginJoining(devEui, appEui, appKey);
   }
+#endif
 }
 
 static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame, error_t result) {
@@ -124,62 +119,26 @@ static void eventLoRaWANReceive(LoRaMac &, const LoRaMacFrame *frame) {
 
 void setup() {
   Serial.begin(115200);
-  Serial.printf("\n*** LoRaWAN Class A Example ***\n");
+  Serial.printf("\n*** [PLM100] LoRaWAN Class A Example ***\n");
 
-  LoRaMac::Primitives_t LoRaMacPrimitives;
-  LoRaMacPrimitives.MacMlmeConfirm = MlmeConfirm;
+  LoRaWAN = LoRaMac::CreateForKR917();
 
-  LoRaMac::Callback_t LoRaMacCallbacks;
-  LoRaMacCallbacks.GetBatteryLevel = NULL;
-
-  LoRaWAN.begin(SX1276, &LoRaMacPrimitives, &LoRaMacCallbacks);
-  LoRaWAN.onSendDone(eventLoRaWANSendDone);
-  LoRaWAN.onReceive(eventLoRaWANReceive);
+  SX1276 = System.attachSX1276MB1LASModule();
+  LoRaWAN->begin(*SX1276);
+  LoRaWAN->onSendDone(eventLoRaWANSendDone);
+  LoRaWAN->onReceive(eventLoRaWANReceive);
+  LoRaWAN->onJoin(eventLoRaWANJoin);
 
 #if (OVER_THE_AIR_ACTIVATION == 0)
   printf("ABP!\n");
-  LoRaMac::MibRequestConfirm_t mibReq;
-
-  mibReq.Type = LoRaMac::MIB_ADR;
-  mibReq.Param.AdrEnable = 1;
-  LoRaWAN.mibSetRequestConfirm(&mibReq);
-
-  mibReq.Type = LoRaMac::MIB_PUBLIC_NETWORK;
-  mibReq.Param.EnablePublicNetwork = true;
-  LoRaWAN.mibSetRequestConfirm(&mibReq);
-
-  // Choose a random device address
-  DevAddr = random(0, 0x01FFFFFF);
-
-  mibReq.Type = LoRaMac::MIB_NET_ID;
-  mibReq.Param.NetID = 0x34;
-  LoRaWAN.mibSetRequestConfirm(&mibReq);
-
-  mibReq.Type = LoRaMac::MIB_DEV_ADDR;
-  mibReq.Param.DevAddr = DevAddr;
-  LoRaWAN.mibSetRequestConfirm(&mibReq);
-
-  mibReq.Type = LoRaMac::MIB_NWK_SKEY;
-  mibReq.Param.NwkSKey = NwkSKey;
-  LoRaWAN.mibSetRequestConfirm(&mibReq);
-
-  mibReq.Type = LoRaMac::MIB_APP_SKEY;
-  mibReq.Param.AppSKey = AppSKey;
-  LoRaWAN.mibSetRequestConfirm(&mibReq);
-
-  mibReq.Type = LoRaMac::MIB_NETWORK_JOINED;
-  mibReq.Param.IsNetworkJoined = true;
-  LoRaWAN.mibSetRequestConfirm(&mibReq);
+  LoRaWAN->setABP(NwkSKey, AppSKey, DevAddr);
+  LoRaWAN->setNetworkJoined(true);
 
   timerSend.onFired(taskPeriodicSend, NULL);
   timerSend.startPeriodic(10000);
 #else
   printf("Trying to join\n");
-  LoRaMac::MlmeReq_t mlmeReq;
-  mlmeReq.Type = LoRaMac::MLME_JOIN;
-  mlmeReq.Req.Join.DevEui = devEui;
-  mlmeReq.Req.Join.AppEui = appEui;
-  mlmeReq.Req.Join.AppKey = appKey;
-  LoRaWAN.mlmeRequest(&mlmeReq);
+  LoRaWAN->setNetworkJoined(true);  /* true: RealAppKey join, false: PseudoAppKey join */
+  LoRaWAN->beginJoining(devEui, appEui, appKey);
 #endif
 }

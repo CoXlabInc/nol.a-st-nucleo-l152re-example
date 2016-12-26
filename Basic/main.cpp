@@ -3,27 +3,24 @@
 Timer tPrint;
 
 static void printTask(void *) {
-  ledToggle();
+  System.ledToggle();
   printf("[%lu usec] Hi!\n", micros());
-
 }
 
 static void keyboard(SerialPort&) {
-  ledToggle();
+  System.ledToggle();
   printf("[%lu usec] Keyboard input\n", micros());
 }
 
 static void button() {
-  ledToggle();
+  System.ledToggle();
   printf("[%lu usec] User button pressed\n", micros());
 }
 
-extern uint32_t SystemCoreClock;
-
 void setup() {
-  ledOn();
+  System.ledOn();
   Serial.begin(115200);
-  printf("\n*** Serial test for ST Nucleo-L152RE *** (%lu Hz)\n", SystemCoreClock);
+  printf("\n*** Serial test for ST Nucleo-L152RE ***\n");
 
   pinMode(BUTTON_BUILTIN, INPUT);
   attachInterrupt(BUTTON_BUILTIN, button, FALLING);

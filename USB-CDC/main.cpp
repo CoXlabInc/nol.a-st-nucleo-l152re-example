@@ -1,12 +1,11 @@
 #include <cox.h>
 
 Timer tPrint;
-SerialPort *vcp = NULL;
 
 static void printTask(void *) {
   System.ledToggle();
   printf("[%lu usec] Hi!\n", micros());
-  vcp->printf("[%lu usec] Hi!\n", micros());
+  SerialUSB.printf("[%lu usec] Hi!\n", micros());
 }
 
 static void keyboard(SerialPort&) {
@@ -25,8 +24,8 @@ static void button() {
 static void eventVcpInput(SerialPort &) {
   System.ledToggle();
 
-  while (vcp->available() > 0) {
-    vcp->printf("[%lu usec] Keyboard input: 0x%02X\n", micros(), vcp->read());
+  while (SerialUSB.available() > 0) {
+    SerialUSB.printf("[%lu usec] Keyboard input: 0x%02X\n", micros(), SerialUSB.read());
   }
 }
 
@@ -44,8 +43,7 @@ void setup() {
   Serial.onReceive(keyboard);
   Serial.listen();
 
-  vcp = System.enableVCP();
-  vcp->begin();
-  vcp->onReceive(eventVcpInput);
-  vcp->listen();
+  SerialUSB.begin();
+  SerialUSB.onReceive(eventVcpInput);
+  SerialUSB.listen();
 }

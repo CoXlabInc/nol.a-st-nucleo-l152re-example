@@ -3,7 +3,7 @@
 Timer tPrint;
 
 static void printTask(void *) {
-  ledToggle();
+  System.ledToggle();
   int32_t a0, a1, a2, a3, a4, a5;
   a0 = analogRead(A0);
   a1 = analogRead(A1);
@@ -15,12 +15,12 @@ static void printTask(void *) {
 }
 
 static void button() {
-  ledToggle();
+  System.ledToggle();
   printf("[%lu usec] User button pressed\n", micros());
 }
 
 void setup() {
-  ledOn();
+  System.ledOn();
   Serial.begin(115200);
   printf("\n*** Serial test for ST Nucleo-L152RE ***\n");
 
