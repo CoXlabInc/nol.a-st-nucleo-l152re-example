@@ -25,8 +25,8 @@ void setup(void) {
 
   SX1276 = System.attachSX1276MB1LASModule();
   SX1276->begin();
-  SX1276->setDataRate(7);
-  SX1276->setCodingRate(1);
+  SX1276->setDataRate(Radio::SF7);
+  SX1276->setCodingRate(Radio::CR_4_5);
   SX1276->setTxPower(20);
   SX1276->setChannel(917300000);
 
