@@ -1,6 +1,7 @@
 #include <cox.h>
+#include <SX1276Chip.hpp>
 
-SX1272_6Chip *SX1276;
+SX1276Chip *SX1276;
 Timer sendTimer;
 RadioPacket *frame = NULL;
 uint32_t sent = 0;

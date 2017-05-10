@@ -1,10 +1,11 @@
 #include <cox.h>
+#include <LPPMac.hpp>
 
 #define SEND_TO_NOLITER
 
 Timer tSense;
 LPPMac *Lpp;
-SX1272_6Chip *SX1276;
+SX127xChip *SX1276;
 
 static void taskSense(void *) {
   uint8_t read;
@@ -47,9 +48,8 @@ static void taskSense(void *) {
 }
 
 static void eventSendDone(IEEE802_15_4Mac &radio,
-                          IEEE802_15_4Frame *frame,
-                          error_t result) {
-  printf("* Send done: %s, t: %u\n", (result == ERROR_SUCCESS) ? "SUCCESS" : "FAIL", frame->txCount);
+                          IEEE802_15_4Frame *frame) {
+  printf("* Send done: %s, t: %u\n", (frame->result == RadioPacket::SUCCESS) ? "SUCCESS" : "FAIL", frame->txCount);
   delete frame;
 }
 #endif //SEND_TO_NOLITER
@@ -68,7 +68,7 @@ void setup(void) {
   SX1276->setTxPower(20);
   SX1276->setChannel(917300000);
 
-  Lpp = LPPMac::Create();
+  Lpp = new LPPMac();
   Lpp->begin(*SX1276, 0x1234, 0x0004, NULL);
   Lpp->setProbePeriod(3000);
   Lpp->setListenTimeout(3300);

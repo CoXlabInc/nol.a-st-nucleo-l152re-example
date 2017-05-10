@@ -1,10 +1,12 @@
 #include <cox.h>
+#include <SX1276Chip.hpp>
+#include <LPPMac.hpp>
 
 IPv6Interface *ppp;
 Timer ledTimer;
 bool booted = false;
 
-SX1272_6Chip *SX1276;
+SX1276Chip *SX1276;
 LPPMac *Lpp;
 NoliterAPI &Noliter = enableNoliterLite();
 
@@ -90,7 +92,7 @@ void setup(void) {
   SX1276->setTxPower(20);
   SX1276->setChannel(917300000);
 
-  Lpp = LPPMac::Create();
+  Lpp = new LPPMac();
   Lpp->begin(*SX1276, 0x1234, 0x0001, NULL);
   Lpp->setProbePeriod(3000);
   Lpp->setListenTimeout(3300);

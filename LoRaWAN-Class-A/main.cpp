@@ -1,8 +1,10 @@
 #include <cox.h>
+#include <SX1276Chip.hpp>
+#include <LoRaMacKR920.hpp>
 
 LoRaMac *LoRaWAN;
 Timer timerSend;
-SX1272_6Chip *SX1276;
+SX127xChip *SX1276;
 
 #define OVER_THE_AIR_ACTIVATION 0
 
@@ -84,8 +86,8 @@ static void eventLoRaWANJoin( LoRaMac &,
 #endif
 }
 
-static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame, error_t result) {
-  printf("* Send done(%d): [%p] destined for port[%u] ", result, frame, frame->port);
+static void eventLoRaWANSendDone(LoRaMac &, LoRaMacFrame *frame) {
+  printf("* Send done(%d): [%p] destined for port[%u] ", frame->result, frame, frame->port);
   if (frame->type == LoRaMacFrame::UNCONFIRMED) {
     printf("UNCONFIRMED");
   } else if (frame->type == LoRaMacFrame::CONFIRMED) {
@@ -121,7 +123,7 @@ void setup() {
   Serial.begin(115200);
   Serial.printf("\n*** [PLM100] LoRaWAN Class A Example ***\n");
 
-  LoRaWAN = LoRaMac::CreateForKR917();
+  LoRaWAN = new LoRaMacKR920();
 
   SX1276 = System.attachSX1276MB1LASModule();
   LoRaWAN->begin(*SX1276);

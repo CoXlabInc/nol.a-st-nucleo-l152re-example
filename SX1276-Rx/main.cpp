@@ -1,6 +1,7 @@
 #include <cox.h>
+#include <SX1276Chip.hpp>
 
-SX1272_6Chip *SX1276;
+SX1276Chip *SX1276;
 Timer tRSSI;
 uint32_t tRxStarted, tRxDone;
 int16_t rssiRxStarted;
@@ -18,7 +19,7 @@ static void printRxDone(void *args) {
   printf( "[%lu us (d:%lu)] Rx is done!: RSSI:%d dB, CRC:%s, Length:%u, (",
           tRxDone, (tRxDone - tRxStarted),
           rxFrame->power,
-          rxFrame->crc_ok ? "OK" : "FAIL",
+          rxFrame->result == RadioPacket::SUCCESS ? "OK" : "FAIL",
           rxFrame->len);
   uint16_t i;
   for (i = 0; i < rxFrame->len; i++)

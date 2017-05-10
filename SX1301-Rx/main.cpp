@@ -1,4 +1,5 @@
 #include <cox.h>
+#include <SX1301Chip.hpp>
 
 #define RADIO_A_FREQ  922200000
 #define RADIO_B_FREQ  923000000

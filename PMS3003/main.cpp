@@ -1,6 +1,8 @@
 #include <cox.h>
+#include <SX1276Chip.hpp>
+#include <LPPMac.hpp>
 
-SX1272_6Chip *SX1276;
+SX1276Chip *SX1276;
 LPPMac *Lpp;
 Timer timerReport;
 
@@ -82,10 +84,10 @@ static void taskReport(void *) {
   Lpp->send(frame);
 }
 
-static void eventSendDone(IEEE802_15_4Mac &radio, IEEE802_15_4Frame *frame, error_t result) {
+static void eventSendDone(IEEE802_15_4Mac &radio, IEEE802_15_4Frame *frame) {
   printf("* Send done: ");
 
-  if (result == ERROR_SUCCESS) {
+  if (frame->result == RadioPacket::SUCCESS) {
     printf("SUCCESS");
   } else {
     printf("FAIL");
@@ -127,7 +129,7 @@ void setup() {
   SX1276->setTxPower(20);
   SX1276->setChannel(917300000);
 
-  Lpp = LPPMac::Create();
+  Lpp = new LPPMac();
   Lpp->begin(*SX1276, 0x1234, 0x0002, NULL);
   Lpp->setProbePeriod(3000);
   Lpp->setListenTimeout(3300);

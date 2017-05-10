@@ -1,11 +1,12 @@
 // -*- indent-tabs-mode:nil; -*-
 
 #include <cox.h>
+#include <LPPMac.hpp>
+#include <SX1276Chip.hpp>
 
 void send(void *args);
 static void sendDone(IEEE802_15_4Mac &radio,
-                     IEEE802_15_4Frame *frame,
-                     error_t result);
+                     IEEE802_15_4Frame *frame);
 static void sendTask(void *args);
 static void receivedProbe(uint16_t panId,
                           const uint8_t *eui64,
@@ -23,7 +24,7 @@ uint8_t node_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
 uint32_t sent = 0;
 uint32_t success = 0;
 
-SX1272_6Chip *SX1276;
+SX1276Chip *SX1276;
 LPPMac *Lpp;
 
 void setup(void) {
@@ -31,7 +32,7 @@ void setup(void) {
   printf("\n*** [ST Nucleo-L152RE] LPP Sender ***\n");
   srand(0x1234 + node_id);
 
-  Lpp = LPPMac::Create();
+  Lpp = new LPPMac();
 
   SX1276 = System.attachSX1276MB1LASModule();
   SX1276->begin();
@@ -60,14 +61,13 @@ void setup(void) {
 }
 
 static void sendDone(IEEE802_15_4Mac &radio,
-                     IEEE802_15_4Frame *frame,
-                     error_t result) {
+                     IEEE802_15_4Frame *frame) {
   uint16_t ratio;
   uint8_t *payload = (uint8_t *) frame->getPayloadPointer();
 
   printf("TX (");
 
-  if (result == ERROR_SUCCESS) {
+  if (frame->result == RadioPacket::SUCCESS) {
     success++;
     printf("S ");
   } else {

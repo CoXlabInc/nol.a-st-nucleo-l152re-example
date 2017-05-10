@@ -1,8 +1,0 @@
-{
- "args": [
-  "st-nucleo-l152re"
- ],
- "sh": false,
- "env": {},
- "port": "JTAG"
-}
