@@ -26,7 +26,7 @@ void setup() {
   attachInterrupt(BUTTON_BUILTIN, button, FALLING);
 
   tPrint.onFired(printTask, NULL);
-  tPrint.startPeriodic(1000);
+  tPrint.startPeriodic(10000);
 
   Serial.listen();
   Serial.onReceive(keyboard);

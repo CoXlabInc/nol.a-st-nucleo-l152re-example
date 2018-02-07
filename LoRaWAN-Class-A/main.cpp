@@ -1,6 +1,6 @@
 #include <cox.h>
 #include <SX1276Chip.hpp>
-#include <LoRaMacKR920.hpp>
+#include <LoRaMacKR920SKT.hpp>
 
 LoRaMac *LoRaWAN;
 Timer timerSend;
