@@ -1,7 +1,18 @@
 #include <cox.h>
-#include <SX1276Chip.hpp>
+#include "SX1276Wiring.hpp"
 
-SX1276Chip *SX1276;
+SX1276Wiring SX1276 = SX1276Wiring(
+  Spi,
+  A0,  //Reset
+  D10, //CS
+  A4,  //RxTx
+  D2,  //DIO0 (PA10)
+  D3,  //DIO1 (PB3)
+  D4,  //DIO2 (PB5)
+  D5,  //DIO3 (PB4)
+  A3   //DIO4 (PB0)
+);
+
 Timer tRSSI;
 uint32_t tRxStarted, tRxDone;
 int16_t rssiRxStarted;
@@ -37,18 +48,18 @@ static void eventOnRxDone(void *ctx) {
 
   if (!rxFrame) {
     printf("Out of memory to read frame\n");
-    SX1276->flushBuffer();
+    SX1276.flushBuffer();
     return;
   }
 
-  SX1276->readFrame(rxFrame);
+  SX1276.readFrame(rxFrame);
   postTask(printRxDone, (void *) rxFrame);
   //SX1276.cca();
 }
 
 static void eventOnChannelBusy(void *ctx) {
   printf("Channel Busy!!\n");
-  SX1276->cca();
+  SX1276.cca();
 }
 
 static void printRxStarted(void *args) {
@@ -58,12 +69,12 @@ static void printRxStarted(void *args) {
 static void eventOnRxStarted(void *ctx) {
   digitalWrite(PC9, HIGH);
   tRxStarted = micros();
-  rssiRxStarted = SX1276->getRssi();
+  rssiRxStarted = SX1276.getRssi();
   postTask(printRxStarted, NULL);
 }
 
 static void taskRSSI(void *args) {
-  printf("[%lu us] RSSI: %d dB\n", micros(), SX1276->getRssi());
+  printf("[%lu us] RSSI: %d dB\n", micros(), SX1276.getRssi());
 }
 
 static void eventKeyboardInput(SerialPort &) {
@@ -74,29 +85,29 @@ static void appStart() {
   Serial.onReceive(eventKeyboardInput);
 
   /* All parameters are specified. */
-  SX1276->begin();
+  SX1276.begin();
 
   if (modem == 0) {
-    SX1276->setModemLoRa();
-    SX1276->setDataRate(sf);
-    SX1276->setCodingRate(cr);
-    SX1276->setBandwidth(bw);
-    SX1276->setIQMode(iq);
-    SX1276->setSyncword(syncword);
+    SX1276.setModemLoRa();
+    SX1276.setDataRate(sf);
+    SX1276.setCodingRate(cr);
+    SX1276.setBandwidth(bw);
+    SX1276.setIQMode(iq);
+    SX1276.setSyncword(syncword);
   } else {
-    SX1276->setModemFsk();
-    SX1276->setDataRate(50000);
-    SX1276->setBandwidth(50000);
-    SX1276->setAfcBandwidth(83333);
-    SX1276->setFdev(25000);
+    SX1276.setModemFsk();
+    SX1276.setDataRate(50000);
+    SX1276.setBandwidth(50000);
+    SX1276.setAfcBandwidth(83333);
+    SX1276.setFdev(25000);
   }
 
-  SX1276->setChannel(917300000);
-  SX1276->onRxStarted(eventOnRxStarted, NULL);
-  SX1276->onRxDone(eventOnRxDone, NULL);
-  SX1276->onChannelBusy(eventOnChannelBusy, NULL);
-  SX1276->wakeup();
-  //SX1276->cca();
+  SX1276.setChannel(917100000);
+  SX1276.onRxStarted(eventOnRxStarted, NULL);
+  SX1276.onRxDone(eventOnRxDone, NULL);
+  SX1276.onChannelBusy(eventOnChannelBusy, NULL);
+  SX1276.wakeup();
+  //SX1276.cca();
 
   tRSSI.onFired(taskRSSI, NULL);
   //tRSSI.startPeriodic(1000);
@@ -232,12 +243,11 @@ static void inputModem(SerialPort &) {
 
 void setup(void) {
   Serial.begin(115200);
-  printf("\n*** SX1276 Low-Level Rx Control Example ***\n");
+  printf("\n*** [ST Nucleo-L152RE] SX1276 Low-Level Rx Control Example ***\n");
 
   pinMode(PC9, OUTPUT);
   digitalWrite(PC9, LOW);
 
-  SX1276 = System.attachSX1276MB1LASModule();
 #if 1
   Serial.listen();
   askModem();

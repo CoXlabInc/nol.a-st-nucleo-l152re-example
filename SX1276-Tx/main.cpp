@@ -1,7 +1,18 @@
 #include <cox.h>
-#include <SX1276Chip.hpp>
+#include "SX1276Wiring.hpp"
 
-SX1276Chip *SX1276;
+SX1276Wiring SX1276 = SX1276Wiring(
+  Spi,
+  A0,  //Reset
+  D10, //CS
+  A4,  //RxTx
+  D2,  //DIO0 (PA10)
+  D3,  //DIO1 (PB3)
+  D4,  //DIO2 (PB5)
+  D5,  //DIO3 (PB4)
+  A3   //DIO4 (PB0)
+);
+
 Timer sendTimer;
 RadioPacket *frame = NULL;
 uint32_t sent = 0;
@@ -14,11 +25,16 @@ Radio::LoRaBW_t bw;
 int8_t txPower;
 bool iq;
 uint8_t syncword;
-uint32_t freq;
-bool packetMode;
+uint32_t freq = 917100000;
+bool packetMode = true;
+struct timeval tvSend;
 
 static void eventOnTxDone(void *ctx, bool success) {
-  printf("[%lu us] Tx %s!\n", micros(), (success) ? "SUCCESS" : "FAIL");
+  struct timeval now, diff;
+  System.getTimeSinceBoot(&now);
+
+  timersub(&now, &tvSend, &diff);
+  printf("[%lu.%06lu] Tx %s!\n", (uint32_t) diff.tv_sec, diff.tv_usec, (success) ? "SUCCESS" : "FAIL");
   delete frame;
   frame = NULL;
 }
@@ -29,8 +45,8 @@ static void sendTask(void *args) {
     return;
   }
 
-  frame = new RadioPacket(125);
-  if (!frame) {
+  frame = new RadioPacket(255);
+  if (!frame || !frame->buf) {
     printf("Not enough memory\n");
     return;
   }
@@ -41,9 +57,10 @@ static void sendTask(void *args) {
   frame->buf[0] = (sent >> 8);
   frame->buf[1] = (sent & 0xff);
 
-  SX1276->transmit(frame);
+  SX1276.transmit(frame);
+  System.getTimeSinceBoot(&tvSend);
 
-  printf("[%lu us] %lu Tx started...\n", micros(), sent);
+  printf("[%lu.%06lu] %lu Tx started...\n", (uint32_t) tvSend.tv_sec, tvSend.tv_usec, sent);
   sent++;
 }
 
@@ -56,34 +73,34 @@ static void appStart() {
   Serial.onReceive(eventKeyStroke);
 
   /* All parameters are specified. */
-  SX1276->begin();
+  SX1276.begin();
 
   if (modem == 0) {
-    SX1276->setModemLoRa();
-    SX1276->setDataRate(sf);
-    SX1276->setCodingRate(cr);
-    SX1276->setBandwidth(bw);
-    SX1276->setIQMode(iq);
-    SX1276->setSyncword(syncword);
+    SX1276.setModemLoRa();
+    SX1276.setDataRate(sf);
+    SX1276.setCodingRate(cr);
+    SX1276.setBandwidth(bw);
+    SX1276.setIQMode(iq);
+    SX1276.setSyncword(syncword);
   } else {
-    SX1276->setModemFsk();
-    SX1276->setDataRate(50000);
-    SX1276->setBandwidth(50000);
-    SX1276->setAfcBandwidth(83333);
-    SX1276->setFdev(25000);
+    SX1276.setModemFsk();
+    SX1276.setDataRate(50000);
+    SX1276.setBandwidth(50000);
+    SX1276.setAfcBandwidth(83333);
+    SX1276.setFdev(25000);
   }
 
-  SX1276->setChannel(freq);
-  SX1276->setTxPower(txPower);
+  SX1276.setChannel(freq);
+  SX1276.setTxPower(txPower);
 
   if (packetMode) {
-    SX1276->onTxDone(eventOnTxDone, NULL);
-    SX1276->wakeup();
+    SX1276.onTxDone(eventOnTxDone, NULL);
+    SX1276.wakeup();
 
     sendTimer.onFired(sendTask, NULL);
     sendTimer.startPeriodic(5000);
   } else {
-    SX1276->transmitCW(true);
+    SX1276.transmitCW(true);
   }
 }
 
@@ -319,9 +336,7 @@ static void inputModem(SerialPort &) {
 
 void setup(void) {
   Serial.begin(115200);
-  printf("*** [PL-ET2] SX1276 Low-Level Tx Control Example ***\n");
-
-  SX1276 = System.attachSX1276MB1LASModule();
+  printf("*** [ST Nucleo-L152RE] SX1276 Low-Level Tx Control Example ***\n");
 
 #if 1
   Serial.listen();
