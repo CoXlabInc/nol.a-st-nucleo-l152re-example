@@ -3,7 +3,7 @@
 #include <ctype.h>
 #include "SX1276Wiring.hpp"
 
-SX1276Wiring SX1276 = SX1276Wiring(
+SX1276Wiring SX1276(
   Spi,
   A0,  //Reset
   D10, //CS

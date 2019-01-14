@@ -1,10 +1,4 @@
 #include <cox.h>
-#include <SX1276Chip.hpp>
-#include <LPPMac.hpp>
-
-SX1276Chip *SX1276;
-LPPMac *Lpp;
-Timer timerReport;
 
 int32_t pm1_0_CF1 = -1;
 int32_t pm2_5_CF1 = -1;
@@ -68,39 +62,6 @@ static void sensorDataReceived(SerialPort &) {
   }
 }
 
-static void taskReport(void *) {
-  IEEE802_15_4Frame *frame = new IEEE802_15_4Frame(125);
-  if (!frame) {
-    printf("Not enough memory\n");
-    return;
-  }
-
-  uint8_t *payload = (uint8_t *) frame->getPayloadPointer();
-  frame->dstAddr.len = 2;
-  frame->dstAddr.id.s16 = 1;
-  frame->setPayloadLength(snprintf((char *) payload, 125, "\"PM1_0\":\"%ld\",\"PM2_5\":\"%ld\",\"PM10_0\":\"%ld\"",
-                        pm1_0_Atmosphere, pm2_5_Atmosphere, pm10_0_Atmosphere));
-  printf("* Report: %s\n", (const char *) payload);
-  Lpp->send(frame);
-}
-
-static void eventSendDone(IEEE802_15_4Mac &radio, IEEE802_15_4Frame *frame) {
-  printf("* Send done: ");
-
-  if (frame->result == RadioPacket::SUCCESS) {
-    printf("SUCCESS");
-  } else {
-    printf("FAIL");
-  }
-
-  const uint8_t *payload = (const uint8_t *) frame->getPayloadPointer();
-  printf(" (%02X %02X..) t: %u\n",
-         payload[0],
-         payload[1],
-         frame->txCount);
-  delete frame;
-}
-
 void setup() {
   Serial.begin(115200);
   printf("\n*** [ST Nucleo-L152RE] PMS3003 ***\n");
@@ -118,25 +79,4 @@ void setup() {
   Serial2.begin(9600);
   Serial2.onReceive(sensorDataReceived);
   Serial2.listen();
-
-  timerReport.onFired(taskReport, NULL);
-  timerReport.startPeriodic(10000);
-
-  SX1276 = System.attachSX1276MB1LASModule();
-  SX1276->begin();
-  SX1276->setDataRate(Radio::SF7);
-  SX1276->setCodingRate(Radio::CR_4_5);
-  SX1276->setTxPower(20);
-  SX1276->setChannel(917300000);
-
-  Lpp = new LPPMac();
-  Lpp->begin(*SX1276, 0x1234, 0x0002, NULL);
-  Lpp->setProbePeriod(3000);
-  Lpp->setListenTimeout(3300);
-  Lpp->setTxTimeout(632);
-  Lpp->setRxTimeout(465);
-  Lpp->setRxWaitTimeout(30);
-  Lpp->setUseSITFirst(true);
-
-  Lpp->onSendDone(eventSendDone);
 }

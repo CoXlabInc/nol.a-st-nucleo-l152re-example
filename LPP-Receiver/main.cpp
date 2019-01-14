@@ -1,8 +1,27 @@
-// -*- indent-tabs-mode:nil; -*-
-
 #include <cox.h>
 #include <LPPMac.hpp>
 #include <SX1276Chip.hpp>
+
+class SX1276Wiring : public SX1276Chip {
+public:
+  SX1276Wiring() : SX1276Chip(Spi, A0, D10, A4, D2, D3, D4, D5, A3) {
+  }
+
+protected:
+  bool usingPaBoost(uint32_t channel) {
+#ifdef USE_PABOOST
+    if (channel > 525000000) {
+      return true;
+    } else {
+      return false;
+    }
+#else
+    return false;
+#endif
+  }
+};
+
+SX1276Wiring SX1276;
 
 static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame);
 static void receivedProbe(uint16_t panId,
@@ -17,35 +36,32 @@ uint8_t devId = 0;
 uint16_t node_id = 2;
 uint8_t node_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
 
-LPPMac *Lpp;
-SX1276Chip *SX1276;
+LPPMac Lpp;
 
 void setup(void) {
   Serial.begin(115200);
 
   printf("\n*** [ST Nucleo-L152RE] LPP Receiver ***\n");
 
-  SX1276 = System.attachSX1276MB1LASModule();
-  SX1276->begin();
-  SX1276->setDataRate(Radio::SF7);
-  SX1276->setCodingRate(Radio::CR_4_5);
-  SX1276->setTxPower(20);
-  SX1276->setChannel(917300000);
+  SX1276.begin();
+  SX1276.setDataRate(Radio::SF7);
+  SX1276.setCodingRate(Radio::CR_4_5);
+  SX1276.setTxPower(20);
+  SX1276.setChannel(917300000);
 
   node_ext_id[6] = highByte(node_id);
   node_ext_id[7] = lowByte(node_id);
 
-  Lpp = new LPPMac();
-  Lpp->begin(*SX1276, 0x1234, 0xFFFF, node_ext_id);
-  Lpp->setProbePeriod(3000);
-  Lpp->setListenTimeout(3300);
-  Lpp->setTxTimeout(632);
-  Lpp->setRxTimeout(465);
-  Lpp->setRxWaitTimeout(30);
-  //Lpp->setRadioAlwaysOn(true);
+  Lpp.begin(SX1276, 0x1234, 0xFFFF, node_ext_id);
+  Lpp.setProbePeriod(3000);
+  Lpp.setListenTimeout(3300);
+  Lpp.setTxTimeout(632);
+  Lpp.setRxTimeout(465);
+  Lpp.setRxWaitTimeout(30);
+  //Lpp.setRadioAlwaysOn(true);
 
-  Lpp->onReceive(received);
-  Lpp->onReceiveProbe(receivedProbe);
+  Lpp.onReceive(received);
+  Lpp.onReceiveProbe(receivedProbe);
 }
 
 static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame) {

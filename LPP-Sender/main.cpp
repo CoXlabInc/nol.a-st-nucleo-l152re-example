@@ -24,37 +24,54 @@ uint8_t node_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
 uint32_t sent = 0;
 uint32_t success = 0;
 
-SX1276Chip *SX1276;
-LPPMac *Lpp;
+class SX1276Wiring : public SX1276Chip {
+public:
+  SX1276Wiring() : SX1276Chip(Spi, A0, D10, A4, D2, D3, D4, D5, A3) {
+  }
+
+protected:
+  bool usingPaBoost(uint32_t channel) {
+#ifdef USE_PABOOST
+    if (channel > 525000000) {
+      return true;
+    } else {
+      return false;
+    }
+#else
+    return false;
+#endif
+  }
+};
+
+SX1276Wiring SX1276;
+
+LPPMac Lpp;
 
 void setup(void) {
   Serial.begin(115200);
   printf("\n*** [ST Nucleo-L152RE] LPP Sender ***\n");
   srand(0x1234 + node_id);
 
-  Lpp = new LPPMac();
-
-  SX1276 = System.attachSX1276MB1LASModule();
-  SX1276->begin();
-  SX1276->setDataRate(Radio::SF7);
-  SX1276->setCodingRate(Radio::CR_4_5);
-  SX1276->setTxPower(14);
-  SX1276->setChannel(922100000);
+  SX1276.begin();
+  SX1276.setDataRate(Radio::SF7);
+  SX1276.setCodingRate(Radio::CR_4_5);
+  SX1276.setTxPower(14);
+  SX1276.setChannel(922100000);
 
   node_ext_id[6] = highByte(node_id);
   node_ext_id[7] = lowByte(node_id);
 
-  Lpp->begin(*SX1276, 0x1234, node_id, node_ext_id);
-  Lpp->setProbePeriod(3000);
-  Lpp->setListenTimeout(3300);
-  Lpp->setTxTimeout(632);
-  Lpp->setRxTimeout(465);
-  Lpp->setRxWaitTimeout(30);
-  //Lpp->setUseSITFirst(true);
+  Lpp.begin(SX1276, 0x1234, node_id, node_ext_id);
+  Lpp.setProbePeriod(3000);
+  Lpp.setListenTimeout(3300);
+  Lpp.setTxTimeout(632);
+  Lpp.setRxTimeout(465);
+  Lpp.setRxWaitTimeout(30);
+  //Lpp.setUseSITFirst(true);
 
-  Lpp->onSendDone(sendDone);
-  Lpp->onReceiveProbe(receivedProbe);
-  Lpp->setProbePayload("test2", 5);
+  Lpp.onSendDone(sendDone);
+  Lpp.onReceiveProbe(receivedProbe);
+  Lpp.setProbePayload("test2", 5);
 
   sendTimer.onFired(sendTask, NULL);
   sendTimer.startPeriodic(10000);
@@ -133,7 +150,7 @@ static void sendTask(void *args) {
     payload[0] = (sent >> 8);
     payload[1] = (sent & 0xff);
 
-    err = Lpp->send(frame);
+    err = Lpp.send(frame);
     if (err != ERROR_SUCCESS) {
       printf("Sending fail.(%d)\n", err);
       delete frame;

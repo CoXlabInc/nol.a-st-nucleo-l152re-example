@@ -1,11 +1,7 @@
 #include <cox.h>
 #include <LPPMac.hpp>
 
-#define SEND_TO_NOLITER
-
 Timer tSense;
-LPPMac *Lpp;
-SX127xChip *SX1276;
 
 static void taskSense(void *) {
   uint8_t read;
@@ -30,29 +26,7 @@ static void taskSense(void *) {
   }
   temperature >>= 7;
   printf("=> %d celcius degree\n", temperature / 2);
-
-#ifdef SEND_TO_NOLITER
-  IEEE802_15_4Frame *frame = new IEEE802_15_4Frame(125);
-  if (!frame) {
-    printf("Not enough memory\n");
-    return;
-  }
-
-  frame->dstAddr.pan.len = 2;
-  frame->dstAddr.pan.id = 0x1234;
-  frame->dstAddr.len = 2;
-  frame->dstAddr.id.s16 = 1;
-  frame->setPayloadLength(snprintf((char *) frame->getPayloadPointer(), 100, "\"temp\":\"%d\"", temperature / 2));
-  printf("* Report: %s\n", (const char *) frame->getPayloadPointer());
-  Lpp->send(frame);
 }
-
-static void eventSendDone(IEEE802_15_4Mac &radio,
-                          IEEE802_15_4Frame *frame) {
-  printf("* Send done: %s, t: %u\n", (frame->result == RadioPacket::SUCCESS) ? "SUCCESS" : "FAIL", frame->txCount);
-  delete frame;
-}
-#endif //SEND_TO_NOLITER
 
 void setup(void) {
   Serial.begin(115200);

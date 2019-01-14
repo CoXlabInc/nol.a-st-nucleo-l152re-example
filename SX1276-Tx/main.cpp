@@ -29,7 +29,7 @@ uint32_t freq = 917100000;
 bool packetMode = true;
 struct timeval tvSend;
 
-static void eventOnTxDone(void *ctx, bool success) {
+static void eventOnTxDone(void *ctx, bool success, GPIOInterruptInfo_t *) {
   struct timeval now, diff;
   System.getTimeSinceBoot(&now);
 
@@ -94,7 +94,7 @@ static void appStart() {
   SX1276.setTxPower(txPower);
 
   if (packetMode) {
-    SX1276.onTxDone(eventOnTxDone, NULL);
+    SX1276.onTxDone = eventOnTxDone;
     SX1276.wakeup();
 
     sendTimer.onFired(sendTask, NULL);
