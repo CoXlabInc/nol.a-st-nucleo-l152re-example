@@ -1,5 +1,3 @@
-// -*- indent-tabs-mode:nil; -*-
-
 #include <cox.h>
 #include <LPPMac.hpp>
 #include <SX1276Chip.hpp>
@@ -80,7 +78,6 @@ void setup(void) {
 static void sendDone(IEEE802_15_4Mac &radio,
                      IEEE802_15_4Frame *frame) {
   uint16_t ratio;
-  uint8_t *payload = (uint8_t *) frame->getPayloadPointer();
 
   printf("TX (");
 
@@ -98,15 +95,14 @@ static void sendDone(IEEE802_15_4Mac &radio,
 
   printf("%u %% (%lu/%lu)) (%02X %02X..) t: %u\n",
          ratio, success, sent,
-         payload[0],
-         payload[1],
+         frame->getPayloadAt(0),
+         frame->getPayloadAt(1),
          frame->txCount);
   delete frame;
 }
 
 static void sendTask(void *args) {
   IEEE802_15_4Frame *frame;
-  uint8_t *payload;
   uint8_t n;
   uint16_t dst;
   uint8_t dest_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
@@ -119,37 +115,23 @@ static void sendTask(void *args) {
       return;
     }
 
-    //frame->setAckRequest(false); // To unicast without Ack request
-    frame->dstAddr.pan.len = 2;
-    frame->dstAddr.pan.id = 0x1234;
   #if 0
-    frame->dstAddr.len = 2;
-    frame->dstAddr.id.s16 = dst;
+    IEEE802_15_4Address dstAddr(dst, 0x1234);
   #else
-    frame->dstAddr.len = 8;
     dest_ext_id[6] = highByte(dst);
     dest_ext_id[7] = lowByte(dst);
-    memcpy(frame->dstAddr.id.s64, dest_ext_id, 8);
+    IEEE802_15_4Address dstAddr(dest_ext_id, 0x1234);
   #endif
-
-  #if 0
-    frame->len = ieee_802_15_4_get_max_tx_payload_len(
-      true, true, IEEE_802_15_4_SEC_NONE);
-  #else
-    frame->len = 50;
-  #endif
-
-    frame->setPayloadLength(100);
-    payload = (uint8_t *) frame->getPayloadPointer();
+    frame->setDstAddr(dstAddr);
 
     for (n = 2; n < frame->getPayloadLength(); n++) {
-      payload[n] = n;
+      frame->setPayloadAt(n, n);
     }
-    frame->setPayloadLength(n);
 
-    payload[0] = (sent >> 8);
-    payload[1] = (sent & 0xff);
+    frame->setPayloadAt(0, sent >> 8);
+    frame->setPayloadAt(1, sent & 0xff);
 
+    //Lpp.useForceNoAckRequest = true; // To unicast without Ack request
     err = Lpp.send(frame);
     if (err != ERROR_SUCCESS) {
       printf("Sending fail.(%d)\n", err);
