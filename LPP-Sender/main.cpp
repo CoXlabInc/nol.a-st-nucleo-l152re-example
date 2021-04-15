@@ -1,6 +1,6 @@
 #include <cox.h>
 #include <LPPMac.hpp>
-#include <SX1276Chip.hpp>
+#include "SX1276Wiring.hpp"
 
 void send(void *args);
 static void sendDone(IEEE802_15_4Mac &radio,
@@ -22,26 +22,15 @@ uint8_t node_ext_id[] = {0x01, 0x23, 0x45, 0x67, 0x89, 0xab, 0, 0};
 uint32_t sent = 0;
 uint32_t success = 0;
 
-class SX1276Wiring : public SX1276Chip {
-public:
-  SX1276Wiring() : SX1276Chip(Spi, A0, D10, A4, D2, D3, D4, D5, A3) {
-  }
-
-protected:
-  bool usingPaBoost(uint32_t channel) {
-#ifdef USE_PABOOST
-    if (channel > 525000000) {
-      return true;
-    } else {
-      return false;
-    }
-#else
-    return false;
-#endif
-  }
-};
-
-SX1276Wiring SX1276;
+SX1276Wiring SX1276(Spi,
+		    A0,  //Reset
+		    D10, //CS
+		    A4,  //RxTx
+		    D2,  //DIO0 (PA10)
+		    D3,  //DIO1 (PB3)
+		    D4,  //DIO2 (PB5)
+		    D5,  //DIO3 (PB4)
+		    A3); //DIO4 (PB0)
 
 LPPMac Lpp;
 
@@ -51,8 +40,7 @@ void setup(void) {
   srand(0x1234 + node_id);
 
   SX1276.begin();
-  SX1276.setDataRate(Radio::SF7);
-  SX1276.setCodingRate(Radio::CR_4_5);
+  SX1276.setRadio(Radio::SF7, Radio::BW_125kHz, Radio::CR_4_5);
   SX1276.setTxPower(14);
   SX1276.setChannel(922100000);
 

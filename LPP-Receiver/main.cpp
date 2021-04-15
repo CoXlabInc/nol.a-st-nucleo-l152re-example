@@ -1,27 +1,16 @@
 #include <cox.h>
 #include <LPPMac.hpp>
-#include <SX1276Chip.hpp>
+#include "SX1276Wiring.hpp"
 
-class SX1276Wiring : public SX1276Chip {
-public:
-  SX1276Wiring() : SX1276Chip(Spi, A0, D10, A4, D2, D3, D4, D5, A3) {
-  }
-
-protected:
-  bool usingPaBoost(uint32_t channel) {
-#ifdef USE_PABOOST
-    if (channel > 525000000) {
-      return true;
-    } else {
-      return false;
-    }
-#else
-    return false;
-#endif
-  }
-};
-
-SX1276Wiring SX1276;
+SX1276Wiring SX1276(Spi,
+		    A0,  //Reset
+		    D10, //CS
+		    A4,  //RxTx
+		    D2,  //DIO0 (PA10)
+		    D3,  //DIO1 (PB3)
+		    D4,  //DIO2 (PB5)
+		    D5,  //DIO3 (PB4)
+		    A3); //DIO4 (PB0)
 
 static void received(IEEE802_15_4Mac &radio, const IEEE802_15_4Frame *frame);
 static void receivedProbe(uint16_t panId,
@@ -44,8 +33,7 @@ void setup(void) {
   printf("\n*** [ST Nucleo-L152RE] LPP Receiver ***\n");
 
   SX1276.begin();
-  SX1276.setDataRate(Radio::SF7);
-  SX1276.setCodingRate(Radio::CR_4_5);
+  SX1276.setRadio(Radio::SF7, Radio::BW_125kHz, Radio::CR_4_5);
   SX1276.setTxPower(20);
   SX1276.setChannel(917300000);
 
