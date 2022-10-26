@@ -1,9 +1,8 @@
+#pragma once
+
 #include "cox.h"
 #include "SX1276Chip.hpp"
 #include "SPI.hpp"
-
-#ifndef SX1276WIRING_HPP
-#define SX1276WIRING_HPP
 
 class SX1276Wiring : public SX1276Chip {
 public:
@@ -19,10 +18,6 @@ public:
     int8_t pinDIO4
   );
 
-  bool checkFrequency(uint32_t) override;
-
 protected:
   bool usingPaBoost(uint32_t channel);
 };
-
-#endif //SX1276WIRING_HPP
